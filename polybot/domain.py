@@ -70,6 +70,25 @@ class Fill:
 
 
 @dataclass
+class Quote:
+    """A two-sided resting quote produced by a market maker.
+
+    A side with size 0 means "do not quote that side" (e.g. at an inventory cap).
+    """
+
+    bid_price: float
+    bid_size: float
+    ask_price: float
+    ask_size: float
+
+    def has_bid(self) -> bool:
+        return self.bid_size > 0 and self.bid_price > 0
+
+    def has_ask(self) -> bool:
+        return self.ask_size > 0 and self.ask_price > 0
+
+
+@dataclass
 class MarketState:
     """Snapshot passed to a strategy on each tick.
 

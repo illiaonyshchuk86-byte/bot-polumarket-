@@ -40,3 +40,10 @@ echo "db size           : $(du -h "$DB" 2>/dev/null | cut -f1)"
 echo "disk free         : $(df -h / | awk 'NR==2{print $4" / "$2}')"
 echo "current commit    : $(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null)"
 echo "================================================"
+
+# --- Professional MM backtest on the collected data (paper, no real orders) ---
+CFG="$APP_DIR/config/config.yaml"
+[ -f "$CFG" ] || CFG="$APP_DIR/config/config.example.yaml"
+echo
+"$APP_DIR/.venv/bin/python" -m polybot.cli mm-backtest --config "$CFG" 2>/dev/null || \
+  echo "(mm-backtest skipped — not enough data yet)"

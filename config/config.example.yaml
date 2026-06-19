@@ -48,3 +48,22 @@ strategy:
     half_spread_cents: 2.0
     # Order size in shares per quote.
     order_size: 20.0
+  # Professional market maker. ALL tuning happens here — the core logic in
+  # strategy/pro_mm.py stays fixed. Tune these numbers over weeks of testing.
+  pro_mm:
+    # Spread (defends against quoting too tight)
+    base_half_spread_cents: 2.0
+    min_half_spread_cents: 1.0        # hard floor — never tighter than this
+    vol_spread_coeff: 1.0             # widen by this * sigma(cents)
+    # Inventory control (defends against position pile-up)
+    inventory_skew_cents_per_share: 0.05
+    max_inventory_shares: 200.0
+    # Sizing
+    base_size: 20.0
+    min_size: 5.0
+    # Volatility / jump guard (defends against being run over on moves)
+    vol_window_secs: 120.0
+    jump_kill_cents: 3.0              # pull all quotes if recent range exceeds this
+    # Keep quotes inside the reward band (but never below the safety floor)
+    clamp_to_reward_zone: true
+    starting_cash_usd: 1000.0

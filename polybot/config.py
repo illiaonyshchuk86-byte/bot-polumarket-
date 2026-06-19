@@ -56,9 +56,45 @@ class NaiveMmConfig(BaseModel):
     order_size: float = 20.0
 
 
+class ProMmConfig(BaseModel):
+    """Professional market-maker parameters. ALL tunable knobs live here so the
+    core logic in strategy/pro_mm.py never has to change during tuning.
+
+    Prices are dollars (0..1); spread/skew knobs are expressed in CENTS
+    (1 cent = $0.01) for readability.
+    """
+
+    # --- Spread (defends against "too tight") ---
+    base_half_spread_cents: float = 2.0
+    min_half_spread_cents: float = 1.0          # hard floor; never quote tighter
+    vol_spread_coeff: float = 1.0               # extra half-spread per cent of sigma
+
+    # --- Inventory control (defends against "inventory pile-up") ---
+    inventory_skew_cents_per_share: float = 0.05  # shift quote center vs inventory
+    max_inventory_shares: float = 200.0           # hard cap -> one-sided at limit
+
+    # --- Sizing ---
+    base_size: float = 20.0
+    min_size: float = 5.0
+
+    # --- Volatility / jump guard (defends against "run over on moves") ---
+    vol_window_secs: float = 120.0
+    jump_kill_cents: float = 3.0                # pull all quotes if recent range exceeds this
+
+    # --- Reward-zone awareness ---
+    clamp_to_reward_zone: bool = True          # keep quotes inside rewards_max_spread (but >= floor)
+
+    # --- Capital ---
+    starting_cash_usd: float = 1000.0
+
+    # --- Backtest scope (bounds memory/time as the dataset grows) ---
+    backtest_lookback_hours: float = 48.0
+
+
 class StrategyConfig(BaseModel):
     arb_scanner: ArbScannerConfig = Field(default_factory=ArbScannerConfig)
     naive_mm: NaiveMmConfig = Field(default_factory=NaiveMmConfig)
+    pro_mm: ProMmConfig = Field(default_factory=ProMmConfig)
 
 
 class Config(BaseModel):

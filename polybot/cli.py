@@ -122,6 +122,39 @@ def backtest(
     _print_report(report)
 
 
+@app.command(name="mm-backtest")
+def mm_backtest(
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Backtest the professional market maker on collected order-book data."""
+    from .backtest.mm_engine import MMBacktest
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+    report = MMBacktest(config).run()
+
+    typer.echo("─" * 60)
+    typer.echo("  Professional MM backtest (rewards NOT credited)")
+    typer.echo("─" * 60)
+    typer.echo(f"  Starting cash : ${report.starting_cash:,.2f}")
+    typer.echo(f"  Final equity  : ${report.final_equity:,.2f}")
+    typer.echo(f"  Net PnL       : ${report.net_pnl():,.2f}")
+    typer.echo(f"  Tokens / steps: {report.tokens} / {report.steps}")
+    typer.echo(f"  Fills         : {report.total_fills} "
+               f"(buys {report.total_buys}, sells {report.total_sells})")
+    typer.echo(f"  Stand-aside   : {report.total_kills} ticks (vol guard / inventory cap)")
+    typer.echo(f"  Max |inventory|: {report.max_abs_inventory:.0f} shares")
+    typer.echo(f"  PnL/step risk : {report.risk_ratio():.3f} (mean/std, rough)")
+    if report.top_tokens:
+        typer.echo("  Top tokens by equity:")
+        for t in report.top_tokens:
+            typer.echo(f"    {t.token_id[:14]}… eq ${t.equity():+.2f} "
+                       f"fills {t.fills} maxInv {t.max_abs_inventory:.0f}")
+    typer.echo("─" * 60)
+    typer.echo("NOTE: snapshot-based maker fills (10s) — approximate; no queue "
+               "position. Profit here would be a floor: rewards are upside.")
+
+
 @app.command(name="paper-run")
 def paper_run(
     strategy: str = typer.Option("naive_mm", help="Strategy name."),
