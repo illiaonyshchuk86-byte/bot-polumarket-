@@ -30,13 +30,16 @@ chown -R polybot:polybot "$APP_DIR" 2>/dev/null || true
 
 echo "==> Restarting collector"
 systemctl restart "$SERVICE"
-sleep 2
 if systemctl is-active --quiet "$SERVICE"; then
   echo "==> Collector restarted OK"
 else
   echo "==> WARNING: collector is not active — recent logs:"
   journalctl -u "$SERVICE" -n 15 --no-pager || true
 fi
+# Wait for the first post-restart cycle to commit so the status report below
+# reflects freshly written data/metadata (a cycle takes ~10-15s).
+echo "==> Waiting for first collection cycle to commit..."
+sleep 18
 
 # Run the current task (default: status report).
 if [ -f "$APP_DIR/ops/task.sh" ]; then
