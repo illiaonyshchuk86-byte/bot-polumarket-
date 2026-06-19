@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 
 from ..clients.clob import ClobClient
@@ -61,14 +62,20 @@ class Collector:
         eligible.sort(key=_market_volume, reverse=True)
         return eligible[: self.config.collector.max_markets]
 
-    def collect_once(self) -> int:
-        """Run a single collection cycle. Returns the number of snapshots saved."""
+    def collect_once(self, stop: "threading.Event | None" = None) -> int:
+        """Run a single collection cycle. Returns the number of snapshots saved.
+
+        If a `stop` event is provided and set mid-cycle, the cycle aborts early
+        (committing whatever was gathered) so shutdown stays responsive.
+        """
         now = time.time()
         markets = self.select_markets()
         snapshots_saved = 0
 
         with self.Session() as session:
             for m in markets:
+                if stop is not None and stop.is_set():
+                    break
                 market_id = str(m.get("id") or m.get("conditionId") or "")
                 if not market_id:
                     continue
@@ -78,6 +85,8 @@ class Collector:
                 self._upsert_market(session, market_id, m, token_ids, outcomes, now)
 
                 for token_id in token_ids:
+                    if stop is not None and stop.is_set():
+                        break
                     try:
                         book = self.clob.get_order_book(token_id)
                     except Exception as exc:  # network/parse — keep cycle alive
@@ -85,6 +94,7 @@ class Collector:
                         continue
                     if not book.timestamp:
                         book.timestamp = now
+                    self._truncate_depth(book)
                     session.add(book_to_snapshot(book, market_id))
                     snapshots_saved += 1
 
@@ -92,6 +102,13 @@ class Collector:
 
         logger.info("collected %d snapshots across %d markets", snapshots_saved, len(markets))
         return snapshots_saved
+
+    def _truncate_depth(self, book) -> None:
+        """Cap stored book depth to `collector.max_book_depth` levels per side."""
+        depth = self.config.collector.max_book_depth
+        if depth and depth > 0:
+            book.bids = book.bids[:depth]
+            book.asks = book.asks[:depth]
 
     def _upsert_market(
         self,
@@ -132,6 +149,49 @@ class Collector:
             if time.time() + sleep_for >= deadline:
                 break
             time.sleep(sleep_for)
+        return total
+
+    def run_forever(self, stop: "threading.Event | None" = None) -> int:
+        """Collect indefinitely until `stop` is set (or SIGINT/SIGTERM).
+
+        Designed for daemon/VPS use: each cycle is wrapped so a transient
+        network or API error is logged and retried on the next interval rather
+        than crashing the process. Returns the total snapshots collected.
+        """
+        stop = stop or threading.Event()
+        interval = self.config.collector.poll_interval_seconds
+        total = 0
+        consecutive_errors = 0
+
+        logger.info(
+            "collector daemon started: interval=%ss markets=%s depth=%s db=%s",
+            interval,
+            self.config.collector.max_markets,
+            self.config.collector.max_book_depth,
+            self.config.db_path,
+        )
+
+        while not stop.is_set():
+            cycle_start = time.time()
+            try:
+                total += self.collect_once(stop)
+                consecutive_errors = 0
+            except Exception as exc:  # keep the daemon alive across failures
+                consecutive_errors += 1
+                logger.error(
+                    "collection cycle failed (%d in a row): %s",
+                    consecutive_errors,
+                    exc,
+                )
+                # Back off (capped) when the API/network is unhappy.
+                backoff = min(interval * consecutive_errors, 300)
+                stop.wait(backoff)
+                continue
+
+            elapsed = time.time() - cycle_start
+            stop.wait(max(0.0, interval - elapsed))
+
+        logger.info("collector daemon stopped: %d total snapshots collected", total)
         return total
 
     def close(self) -> None:

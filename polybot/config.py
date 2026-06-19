@@ -27,6 +27,9 @@ class CollectorConfig(BaseModel):
     poll_interval_seconds: int = 10
     max_markets: int = 25
     min_volume_usd: float = 1000.0
+    # Keep only the top-N levels of each side of the book when persisting.
+    # Caps database growth for long-running daemon collection (0 = no limit).
+    max_book_depth: int = 10
 
 
 class PaperConfig(BaseModel):

@@ -78,6 +78,36 @@ def collect(
 
 
 @app.command()
+def daemon(
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Collect data continuously (for always-on VPS use). Ctrl-C / SIGTERM to stop."""
+    import signal
+    import threading
+
+    from .collector.collector import Collector
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+
+    stop = threading.Event()
+
+    def _handle(signum, _frame):
+        logging.getLogger("polybot.cli").info("received signal %s, shutting down", signum)
+        stop.set()
+
+    signal.signal(signal.SIGINT, _handle)
+    signal.signal(signal.SIGTERM, _handle)
+
+    collector = Collector(config)
+    try:
+        total = collector.run_forever(stop)
+    finally:
+        collector.close()
+    typer.echo(f"Daemon stopped. Collected {total} snapshots into {config.db_path}")
+
+
+@app.command()
 def backtest(
     strategy: str = typer.Option("arb_scanner", help="Strategy name."),
     config_path: str = typer.Option(None, "--config", help="Path to YAML config."),

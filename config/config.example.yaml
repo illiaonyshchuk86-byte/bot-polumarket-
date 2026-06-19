@@ -16,6 +16,9 @@ collector:
   max_markets: 25
   # Only collect markets whose 24h volume (USD) is at least this much.
   min_volume_usd: 1000.0
+  # Keep only the top-N price levels per book side when storing (0 = unlimited).
+  # 10 is plenty for spread/liquidity/MM analysis and keeps the DB small.
+  max_book_depth: 10
 
 # Paper-trading / simulation settings.
 paper:
