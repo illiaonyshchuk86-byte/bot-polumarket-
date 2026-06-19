@@ -85,3 +85,51 @@ def parse_outcomes(market: dict[str, Any]) -> list[str]:
         except (json.JSONDecodeError, TypeError):
             return []
     return []
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_market_meta(market: dict[str, Any]) -> dict[str, Any]:
+    """Extract market-making-relevant metadata from a Gamma market dict.
+
+    Returns category/grouping hints plus the reward and fee parameters that
+    determine whether a market is worth quoting (verified field names against
+    the live Gamma API, June 2026).
+    """
+    sports_type = str(market.get("sportsMarketType") or "")
+    fee_type = str(market.get("feeType") or "")
+    events = market.get("events")
+    ev = events[0] if isinstance(events, list) and events else {}
+    event_ticker = str(ev.get("ticker") or ev.get("slug") or "")
+    # No clean category field exists; detect sports via sportsMarketType (set on
+    # match markets) or feeType (e.g. "sports_fees_v2", set on tournament-winner
+    # markets too). Everything else is "other".
+    is_sports = bool(sports_type) or "sports" in fee_type.lower()
+    category = "sports" if is_sports else "other"
+
+    clob_rewards = market.get("clobRewards") or []
+    max_spread = _to_float(market.get("rewardsMaxSpread"))
+    min_size = _to_float(market.get("rewardsMinSize"))
+    rewards_enabled = bool(clob_rewards) or (max_spread is not None and max_spread > 0)
+
+    fee = market.get("feeSchedule") or {}
+
+    return {
+        "category": category,
+        "event_ticker": event_ticker,
+        "sports_market_type": sports_type,
+        "rewards_enabled": rewards_enabled,
+        "rewards_max_spread": max_spread,
+        "rewards_min_size": min_size,
+        "holding_rewards_enabled": bool(market.get("holdingRewardsEnabled")),
+        "fee_rate": _to_float(fee.get("rate")),
+        "rebate_rate": _to_float(fee.get("rebateRate")),
+        "liquidity_usd": _to_float(market.get("liquidityClob") or market.get("liquidity")) or 0.0,
+    }

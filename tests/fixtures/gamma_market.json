@@ -5,5 +5,13 @@
   "closed": false,
   "volume24hr": "15234.5",
   "clobTokenIds": "[\"111111\", \"222222\"]",
-  "outcomes": "[\"Yes\", \"No\"]"
+  "outcomes": "[\"Yes\", \"No\"]",
+  "sportsMarketType": "moneyline",
+  "rewardsMaxSpread": 1.5,
+  "rewardsMinSize": 1000,
+  "holdingRewardsEnabled": false,
+  "clobRewards": [{"id": "999", "rewardsDailyRate": 50}],
+  "feeSchedule": {"rate": 0.03, "rebateRate": 0.25, "takerOnly": true},
+  "liquidityClob": 757045.99,
+  "events": [{"ticker": "fifwc-sco-mar-2026-06-19", "title": "Scotland vs. Morocco"}]
 }

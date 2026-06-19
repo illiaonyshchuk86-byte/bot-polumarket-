@@ -25,11 +25,14 @@ class ApiConfig(BaseModel):
 
 class CollectorConfig(BaseModel):
     poll_interval_seconds: int = 10
-    max_markets: int = 25
+    max_markets: int = 40
     min_volume_usd: float = 1000.0
     # Keep only the top-N levels of each side of the book when persisting.
     # Caps database growth for long-running daemon collection (0 = no limit).
     max_book_depth: int = 10
+    # Track reward-enabled (market-making relevant) markets first, then fill
+    # remaining slots by volume.
+    prioritize_rewards: bool = True
 
 
 class PaperConfig(BaseModel):

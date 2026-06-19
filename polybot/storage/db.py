@@ -5,12 +5,39 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..domain import BookLevel, OrderBook
 from .models import Base, OrderBookSnapshot
+
+# Columns added after the initial schema, with their SQLite type + default.
+# create_all() does not alter existing tables, so we add them by hand.
+_MARKET_MIGRATIONS: list[tuple[str, str]] = [
+    ("category", "TEXT DEFAULT ''"),
+    ("event_ticker", "TEXT DEFAULT ''"),
+    ("sports_market_type", "TEXT DEFAULT ''"),
+    ("rewards_enabled", "BOOLEAN DEFAULT 0"),
+    ("rewards_max_spread", "FLOAT"),
+    ("rewards_min_size", "FLOAT"),
+    ("holding_rewards_enabled", "BOOLEAN DEFAULT 0"),
+    ("fee_rate", "FLOAT"),
+    ("rebate_rate", "FLOAT"),
+    ("liquidity_usd", "FLOAT DEFAULT 0.0"),
+]
+
+
+def _migrate(engine: Engine) -> None:
+    """Add any missing columns to existing tables (idempotent)."""
+    inspector = inspect(engine)
+    if "markets" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("markets")}
+    with engine.begin() as conn:
+        for name, ddl in _MARKET_MIGRATIONS:
+            if name not in existing:
+                conn.execute(text(f"ALTER TABLE markets ADD COLUMN {name} {ddl}"))
 
 
 def make_engine(db_path: str) -> Engine:
@@ -19,6 +46,7 @@ def make_engine(db_path: str) -> Engine:
         Path(db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
     engine = create_engine(f"sqlite:///{db_path}", future=True)
     Base.metadata.create_all(engine)
+    _migrate(engine)
     return engine
 
 

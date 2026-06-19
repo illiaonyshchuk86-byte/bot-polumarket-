@@ -12,7 +12,12 @@ import threading
 import time
 
 from ..clients.clob import ClobClient
-from ..clients.gamma import GammaClient, parse_clob_token_ids, parse_outcomes
+from ..clients.gamma import (
+    GammaClient,
+    parse_clob_token_ids,
+    parse_market_meta,
+    parse_outcomes,
+)
 from ..config import Config
 from ..storage.db import book_to_snapshot, make_engine, make_session_factory
 from ..storage.models import Market
@@ -54,12 +59,22 @@ class Collector:
         self.Session = make_session_factory(self.engine)
 
     def select_markets(self) -> list[dict]:
-        """Fetch active markets, filter by volume, and keep the top N."""
+        """Fetch active markets, filter by volume, and keep the top N.
+
+        With `prioritize_rewards`, reward-enabled markets (the MM-relevant set)
+        are kept first, then remaining slots are filled by volume.
+        """
         markets = self.gamma.list_markets(active=True, closed=False, limit=200)
         eligible = [
             m for m in markets if _market_volume(m) >= self.config.collector.min_volume_usd
         ]
         eligible.sort(key=_market_volume, reverse=True)
+
+        if self.config.collector.prioritize_rewards:
+            rewarded = [m for m in eligible if parse_market_meta(m)["rewards_enabled"]]
+            others = [m for m in eligible if not parse_market_meta(m)["rewards_enabled"]]
+            eligible = rewarded + others
+
         return eligible[: self.config.collector.max_markets]
 
     def collect_once(self, stop: "threading.Event | None" = None) -> int:
@@ -121,6 +136,7 @@ class Collector:
         outcomes: list[str],
         now: float,
     ) -> None:
+        meta = parse_market_meta(raw)
         existing = session.get(Market, market_id)
         if existing is None:
             session.add(
@@ -132,11 +148,15 @@ class Collector:
                     volume_usd=_market_volume(raw),
                     first_seen_ts=now,
                     last_seen_ts=now,
+                    **meta,
                 )
             )
         else:
             existing.last_seen_ts = now
             existing.volume_usd = _market_volume(raw)
+            # Refresh MM metadata (rewards/liquidity can change over time).
+            for key, value in meta.items():
+                setattr(existing, key, value)
 
     def run(self, minutes: float) -> int:
         """Poll on the configured interval for `minutes`. Returns total snapshots."""

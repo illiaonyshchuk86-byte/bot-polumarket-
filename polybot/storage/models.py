@@ -6,7 +6,7 @@ the full top-of-book levels as JSON so the backtest engine can replay them.
 
 from __future__ import annotations
 
-from sqlalchemy import Float, Integer, String, Text
+from sqlalchemy import Boolean, Float, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -25,6 +25,18 @@ class Market(Base):
     volume_usd: Mapped[float] = mapped_column(Float, default=0.0)
     first_seen_ts: Mapped[float] = mapped_column(Float, default=0.0)
     last_seen_ts: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # --- Market-making metadata (see clients.gamma.parse_market_meta) ---
+    category: Mapped[str] = mapped_column(String, default="")
+    event_ticker: Mapped[str] = mapped_column(String, default="")
+    sports_market_type: Mapped[str] = mapped_column(String, default="")
+    rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    rewards_max_spread: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rewards_min_size: Mapped[float | None] = mapped_column(Float, nullable=True)
+    holding_rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    fee_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rebate_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    liquidity_usd: Mapped[float] = mapped_column(Float, default=0.0)
 
 
 class OrderBookSnapshot(Base):

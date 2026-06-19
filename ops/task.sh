@@ -21,8 +21,15 @@ if command -v sqlite3 >/dev/null 2>&1; then
   mkts=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM markets;' 2>/dev/null)
   latest=$(sqlite3 "$DB" "SELECT datetime(MAX(ts),'unixepoch') FROM orderbook_snapshots;" 2>/dev/null)
   span=$(sqlite3 "$DB" "SELECT ROUND((MAX(ts)-MIN(ts))/3600.0,2) FROM orderbook_snapshots;" 2>/dev/null)
+  rew=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM markets WHERE rewards_enabled=1;' 2>/dev/null)
+  sports=$(sqlite3 "$DB" "SELECT COUNT(*) FROM markets WHERE category='sports';" 2>/dev/null)
+  avgspread=$(sqlite3 "$DB" "SELECT ROUND(AVG((best_ask-best_bid)*100),3) FROM orderbook_snapshots WHERE best_bid IS NOT NULL AND best_ask IS NOT NULL AND ts >= (SELECT MAX(ts)-60 FROM orderbook_snapshots);" 2>/dev/null)
   echo "snapshots         : ${snaps:-?}"
   echo "markets tracked   : ${mkts:-?}"
+  echo "  reward-enabled  : ${rew:-?}"
+  echo "  sports          : ${sports:-?}"
+  echo "avg spread (last  : ${avgspread:-?} cents"
+  echo "  60s, both sides)"
   echo "latest snap (UTC) : ${latest:-?}"
   echo "collection span   : ${span:-?} hours"
 else

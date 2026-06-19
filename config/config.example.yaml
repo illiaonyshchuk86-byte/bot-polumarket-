@@ -13,12 +13,15 @@ api:
 collector:
   poll_interval_seconds: 10
   # How many active markets to track per cycle (sorted by liquidity/volume).
-  max_markets: 25
+  max_markets: 40
   # Only collect markets whose 24h volume (USD) is at least this much.
   min_volume_usd: 1000.0
   # Keep only the top-N price levels per book side when storing (0 = unlimited).
   # 10 is plenty for spread/liquidity/MM analysis and keeps the DB small.
   max_book_depth: 10
+  # Track reward-enabled (market-making relevant) markets first, then fill the
+  # rest by volume. Set false to collect a purely volume-ranked universe.
+  prioritize_rewards: true
 
 # Paper-trading / simulation settings.
 paper:
