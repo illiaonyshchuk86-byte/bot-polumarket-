@@ -22,12 +22,14 @@ echo "==> Creating service user '${SERVICE_USER}'"
 id -u "${SERVICE_USER}" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "${SERVICE_USER}"
 
 echo "==> Cloning repository into ${APP_DIR}"
+# The repo dir is owned by the polybot user; allow root's git to operate on it.
+git config --global --add safe.directory "${APP_DIR}" 2>/dev/null || true
 if [ ! -d "${APP_DIR}/.git" ]; then
   git clone --branch "${BRANCH}" "${REPO_URL}" "${APP_DIR}"
 else
   git -C "${APP_DIR}" fetch origin "${BRANCH}"
   git -C "${APP_DIR}" checkout "${BRANCH}"
-  git -C "${APP_DIR}" pull origin "${BRANCH}"
+  git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
 fi
 
 echo "==> Creating virtualenv and installing polybot"
