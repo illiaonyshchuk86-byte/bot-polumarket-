@@ -44,6 +44,9 @@ class MMDryRun:
             timeout_seconds=config.api.timeout_seconds,
             max_retries=config.api.max_retries,
         )
+        # token_id -> (market_id, rewards_max_spread); remembered so we can keep
+        # managing a position even after its market leaves the volume selection.
+        self._token_meta: dict[str, tuple[str, float | None]] = {}
 
     def _select_markets(self) -> list[dict]:
         markets = self.gamma.list_markets(active=True, closed=False, limit=200)
@@ -56,20 +59,29 @@ class MMDryRun:
         return eligible[: self.config.collector.max_markets]
 
     def _poll_cycle(self) -> None:
-        now = time.time()
+        # Tokens to manage this cycle = current volume selection UNION any token
+        # where we still hold inventory (so positions are never abandoned).
+        selected: list[str] = []
         for market in self._select_markets():
             market_id = str(market.get("id") or market.get("conditionId") or "")
             if not market_id:
                 continue
             meta = parse_market_meta(market)
-            reward_spread = meta["rewards_max_spread"]
             for token_id in parse_clob_token_ids(market):
-                try:
-                    book = self.clob.get_order_book(token_id)
-                except Exception as exc:
-                    logger.warning("book fetch failed for %s: %s", token_id, exc)
-                    continue
-                self.sim.on_book(token_id, market_id, book, reward_spread, time.time())
+                self._token_meta[token_id] = (market_id, meta["rewards_max_spread"])
+                selected.append(token_id)
+
+        held = [t for t in self.sim.tokens_with_inventory() if t in self._token_meta]
+        to_poll = list(dict.fromkeys(selected + held))  # dedup, keep order
+
+        for token_id in to_poll:
+            market_id, reward_spread = self._token_meta[token_id]
+            try:
+                book = self.clob.get_order_book(token_id)
+            except Exception as exc:
+                logger.warning("book fetch failed for %s: %s", token_id, exc)
+                continue
+            self.sim.on_book(token_id, market_id, book, reward_spread, time.time())
 
     def run(
         self,

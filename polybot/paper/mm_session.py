@@ -82,6 +82,8 @@ class MMReport:
     pnl_per_step_mean: float
     pnl_per_step_std: float
     top_tokens: list[TokenResult] = field(default_factory=list)
+    worst_tokens: list[TokenResult] = field(default_factory=list)
+    open_inventory_tokens: int = 0
 
     def net_pnl(self) -> float:
         return self.final_equity - self.starting_cash
@@ -99,6 +101,11 @@ class MMSession:
         self.params = params
         self.maker = ProMarketMaker(params)
         self.states: dict[str, _TokenState] = {}
+
+    def tokens_with_inventory(self) -> set[str]:
+        """Tokens where we still hold a (non-flat) position and must keep
+        managing — even if they drop out of the volume-based selection."""
+        return {tid for tid, st in self.states.items() if abs(st.inventory) > 1e-9}
 
     def on_book(
         self, token_id: str, market_id: str, book: OrderBook, reward_spread: float | None, ts: float
@@ -200,4 +207,6 @@ class MMSession:
             pnl_per_step_mean=statistics.fmean(all_changes) if all_changes else 0.0,
             pnl_per_step_std=statistics.pstdev(all_changes) if len(all_changes) >= 2 else 0.0,
             top_tokens=results[:5],
+            worst_tokens=results[-5:][::-1],
+            open_inventory_tokens=len(self.tokens_with_inventory()),
         )

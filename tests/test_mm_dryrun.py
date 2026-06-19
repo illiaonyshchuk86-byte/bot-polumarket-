@@ -68,6 +68,51 @@ class _FakeClob:
         pass
 
 
+def test_tokens_with_inventory():
+    sim = MMSession(ProMmConfig(warmup_ticks=0, jump_kill_cents=100.0, clamp_to_reward_zone=False))
+    sim.on_book("yes", "m1", _book(0.49, 0.51), None, ts=0.0)
+    sim.on_book("yes", "m1", _book(0.46, 0.47), None, ts=10.0)  # buys -> holds inventory
+    assert "yes" in sim.tokens_with_inventory()
+
+
+class _DropGamma:
+    """Returns the market for the first two cycles, then nothing (it 'leaves'
+    the volume selection) — to test that held positions are still managed."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def list_markets(self, **kw):
+        self.calls += 1
+        if self.calls <= 2:
+            return [{
+                "id": "m1", "question": "Q?", "volume24hr": 999999,
+                "clobTokenIds": "[\"yes\"]", "outcomes": "[\"Yes\",\"No\"]",
+                "rewardsMaxSpread": 2.0, "feeType": "sports_fees_v2",
+            }]
+        return []
+
+    def close(self):
+        pass
+
+
+def test_held_token_still_polled_after_leaving_selection():
+    cfg = Config(db_path=":memory:")
+    cfg.strategy.pro_mm = ProMmConfig(
+        base_half_spread_cents=2.0, min_half_spread_cents=1.0, vol_spread_coeff=0.0,
+        jump_kill_cents=100.0, warmup_ticks=0, clamp_to_reward_zone=False,
+    )
+    clob = _FakeClob()
+    runner = MMDryRun(cfg, gamma=_DropGamma(), clob=clob)
+
+    runner._poll_cycle()  # cycle 1: market present, quote placed (book .49/.51)
+    runner._poll_cycle()  # cycle 2: market present, bid fills -> we now hold inventory
+    assert runner.sim.states["yes"].inventory > 0  # position established
+
+    runner._poll_cycle()  # cycle 3: market GONE, but held token must still be polled
+    assert clob.i == 3    # polled all three cycles despite leaving selection
+
+
 def test_dryrun_loop_runs_and_fills(monkeypatch):
     cfg = Config(db_path=":memory:")
     cfg.strategy.pro_mm = ProMmConfig(

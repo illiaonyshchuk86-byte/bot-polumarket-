@@ -136,12 +136,13 @@ def _print_mm_report(report, *, title: str, elapsed_secs: float | None = None) -
                f"(buys {report.total_buys}, sells {report.total_sells})")
     typer.echo(f"  Stand-aside   : {report.total_kills} ticks (vol guard / inventory cap)")
     typer.echo(f"  Max |inventory|: {report.max_abs_inventory:.0f} shares")
+    typer.echo(f"  Open positions: {report.open_inventory_tokens} tokens still holding inventory")
     typer.echo(f"  PnL/step risk : {report.risk_ratio():.3f} (mean/std, rough)")
-    if report.top_tokens:
-        typer.echo("  Top tokens by equity:")
-        for t in report.top_tokens:
+    if report.worst_tokens:
+        typer.echo("  Worst tokens by equity (where the bleed is):")
+        for t in report.worst_tokens:
             typer.echo(f"    {t.token_id[:14]}… eq ${t.equity():+.2f} "
-                       f"fills {t.fills} maxInv {t.max_abs_inventory:.0f}")
+                       f"inv {t.inventory:+.0f} fills {t.fills}")
     typer.echo("─" * 60)
     typer.echo("NOTE: ~snapshot-resolution maker fills, no queue position, no "
                "rewards. Treat as an honest floor, not a promise.")
