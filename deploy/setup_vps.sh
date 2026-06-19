@@ -45,7 +45,15 @@ install -m 0644 "${APP_DIR}/deploy/polybot-collector.service" /etc/systemd/syste
 systemctl daemon-reload
 systemctl enable --now polybot-collector.service
 
+echo "==> Installing polybot-sync helper"
+cat > /usr/local/bin/polybot-sync <<'WRAP'
+#!/usr/bin/env bash
+exec bash /opt/polybot/ops/sync.sh "$@"
+WRAP
+chmod +x /usr/local/bin/polybot-sync
+
 echo "==> Done. Useful commands:"
+echo "    sudo polybot-sync                       # pull latest + restart + status"
 echo "    systemctl status polybot-collector"
 echo "    journalctl -u polybot-collector -f"
 echo "    sqlite3 ${APP_DIR}/data/polybot.db 'SELECT COUNT(*) FROM orderbook_snapshots;'"
