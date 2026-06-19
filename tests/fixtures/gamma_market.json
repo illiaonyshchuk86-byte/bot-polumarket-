@@ -1,0 +1,9 @@
+{
+  "id": "0xMARKET123",
+  "question": "Will it rain tomorrow?",
+  "active": true,
+  "closed": false,
+  "volume24hr": "15234.5",
+  "clobTokenIds": "[\"111111\", \"222222\"]",
+  "outcomes": "[\"Yes\", \"No\"]"
+}
