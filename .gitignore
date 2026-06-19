@@ -20,6 +20,9 @@ venv/
 data/
 *.log
 
+# Dry-run / backtest output (equity curves, session logs)
+runs/
+
 # Tooling
 .pytest_cache/
 .mypy_cache/
