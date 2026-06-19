@@ -122,23 +122,15 @@ def backtest(
     _print_report(report)
 
 
-@app.command(name="mm-backtest")
-def mm_backtest(
-    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
-):
-    """Backtest the professional market maker on collected order-book data."""
-    from .backtest.mm_engine import MMBacktest
-
-    config = load_config(config_path)
-    _setup_logging(config.log_level)
-    report = MMBacktest(config).run()
-
+def _print_mm_report(report, *, title: str, elapsed_secs: float | None = None) -> None:
     typer.echo("─" * 60)
-    typer.echo("  Professional MM backtest (rewards NOT credited)")
+    typer.echo(f"  {title} (rewards NOT credited)")
     typer.echo("─" * 60)
     typer.echo(f"  Starting cash : ${report.starting_cash:,.2f}")
     typer.echo(f"  Final equity  : ${report.final_equity:,.2f}")
-    typer.echo(f"  Net PnL       : ${report.net_pnl():,.2f}")
+    typer.echo(f"  Net PnL       : ${report.net_pnl():,.2f}  ({report.return_pct():+.2f}% of capital)")
+    if elapsed_secs:
+        typer.echo(f"  Over          : {elapsed_secs / 3600.0:.2f} hours (NOT annualized)")
     typer.echo(f"  Tokens / steps: {report.tokens} / {report.steps}")
     typer.echo(f"  Fills         : {report.total_fills} "
                f"(buys {report.total_buys}, sells {report.total_sells})")
@@ -151,8 +143,79 @@ def mm_backtest(
             typer.echo(f"    {t.token_id[:14]}… eq ${t.equity():+.2f} "
                        f"fills {t.fills} maxInv {t.max_abs_inventory:.0f}")
     typer.echo("─" * 60)
-    typer.echo("NOTE: snapshot-based maker fills (10s) — approximate; no queue "
-               "position. Profit here would be a floor: rewards are upside.")
+    typer.echo("NOTE: ~snapshot-resolution maker fills, no queue position, no "
+               "rewards. Treat as an honest floor, not a promise.")
+
+
+@app.command(name="mm-backtest")
+def mm_backtest(
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Backtest the professional market maker on collected order-book data."""
+    from .backtest.mm_engine import MMBacktest
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+    report = MMBacktest(config).run()
+    _print_mm_report(report, title="Professional MM backtest")
+
+
+@app.command(name="mm-dryrun")
+def mm_dryrun(
+    minutes: float = typer.Option(10.0, help="How long to run, in minutes."),
+    interval: float = typer.Option(None, help="Seconds between polls (default: config)."),
+    log: str = typer.Option(None, "--log", help="Append the equity curve to this CSV file."),
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Run the market maker live against the real book, fully simulated (no orders)."""
+    import csv
+    import signal
+    import threading
+    from pathlib import Path
+
+    from .paper.mm_dryrun import MMDryRun
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+
+    stop = threading.Event()
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+
+    log_fh = log_writer = None
+    if log:
+        Path(log).expanduser().parent.mkdir(parents=True, exist_ok=True)
+        new = not Path(log).exists()
+        log_fh = open(log, "a", newline="")
+        log_writer = csv.writer(log_fh)
+        if new:
+            log_writer.writerow(
+                ["elapsed_secs", "equity", "net_pnl", "return_pct", "fills", "kills", "max_inv"]
+            )
+
+    def status(report, elapsed):
+        typer.echo(
+            f"[{elapsed/60:5.1f}m] equity ${report.final_equity:,.2f} "
+            f"PnL ${report.net_pnl():+.2f} ({report.return_pct():+.2f}%) "
+            f"fills {report.total_fills} kills {report.total_kills} "
+            f"maxInv {report.max_abs_inventory:.0f}"
+        )
+        if log_writer:
+            log_writer.writerow([
+                round(elapsed, 1), round(report.final_equity, 4), round(report.net_pnl(), 4),
+                round(report.return_pct(), 4), report.total_fills, report.total_kills,
+                round(report.max_abs_inventory, 1),
+            ])
+            log_fh.flush()
+
+    runner = MMDryRun(config)
+    try:
+        report = runner.run(minutes, interval=interval, stop=stop, on_status=status)
+    finally:
+        runner.close()
+        if log_fh:
+            log_fh.close()
+    _print_mm_report(report, title="Professional MM dry-run", elapsed_secs=minutes * 60.0)
 
 
 @app.command(name="paper-run")

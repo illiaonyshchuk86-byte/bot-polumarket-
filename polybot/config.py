@@ -80,12 +80,22 @@ class ProMmConfig(BaseModel):
     # --- Volatility / jump guard (defends against "run over on moves") ---
     vol_window_secs: float = 120.0
     jump_kill_cents: float = 3.0                # pull all quotes if recent range exceeds this
+    # Don't quote a token until this many observations exist, so the volatility
+    # estimate is meaningful (no blind quoting at startup).
+    warmup_ticks: int = 3
 
     # --- Reward-zone awareness ---
     clamp_to_reward_zone: bool = True          # keep quotes inside rewards_max_spread (but >= floor)
 
     # --- Capital ---
     starting_cash_usd: float = 1000.0
+
+    # --- Fill realism (keep the dry-run honest, never rosy) ---
+    # Require the market to trade THROUGH a resting quote by this many ticks
+    # before counting a fill (0 = a touch fills; higher = more conservative).
+    fill_through_ticks: float = 0.0
+    # Maker fee in basis points. Polymarket makers pay 0; kept tunable.
+    maker_fee_bps: float = 0.0
 
     # --- Backtest scope (bounds memory/time as the dataset grows) ---
     backtest_lookback_hours: float = 48.0

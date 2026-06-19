@@ -33,7 +33,7 @@ def _config(db, **mm_over):
         base_half_spread_cents=2.0, min_half_spread_cents=1.0, vol_spread_coeff=0.0,
         inventory_skew_cents_per_share=0.05, max_inventory_shares=200.0,
         base_size=20.0, min_size=5.0, vol_window_secs=1000.0, jump_kill_cents=100.0,
-        clamp_to_reward_zone=False, starting_cash_usd=1000.0,
+        warmup_ticks=0, clamp_to_reward_zone=False, starting_cash_usd=1000.0,
     )
     base.update(mm_over)
     return Config(db_path=db, strategy={"pro_mm": ProMmConfig(**base)})
