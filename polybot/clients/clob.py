@@ -79,6 +79,10 @@ def parse_order_book(token_id: str, data: dict[str, Any]) -> OrderBook:
             timestamp = float(ts) if ts is not None else 0.0
         except (TypeError, ValueError):
             timestamp = 0.0
+        # The CLOB API returns the book timestamp in milliseconds; normalize to
+        # seconds so callers never mix units.
+        if timestamp > 1e11:
+            timestamp /= 1000.0
     bids = _parse_levels(data.get("bids") if isinstance(data, dict) else None, reverse=True)
     asks = _parse_levels(data.get("asks") if isinstance(data, dict) else None, reverse=False)
     return OrderBook(token_id=token_id, bids=bids, asks=asks, timestamp=timestamp)

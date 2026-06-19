@@ -92,8 +92,10 @@ class Collector:
                     except Exception as exc:  # network/parse — keep cycle alive
                         logger.warning("order book fetch failed for %s: %s", token_id, exc)
                         continue
-                    if not book.timestamp:
-                        book.timestamp = now
+                    # Always stamp with the server clock in SECONDS so the stored
+                    # time series is consistent. The API book timestamp is in
+                    # milliseconds and must not be mixed in.
+                    book.timestamp = now
                     self._truncate_depth(book)
                     session.add(book_to_snapshot(book, market_id))
                     snapshots_saved += 1

@@ -9,6 +9,16 @@
 APP_DIR=/opt/polybot
 DB="$APP_DIR/data/polybot.db"
 
+# --- one-time cleanup: drop early snapshots whose ts was stored in milliseconds
+# (pre-timestamp-fix). Idempotent: a no-op once no such rows remain. ---
+if command -v sqlite3 >/dev/null 2>&1; then
+  bad=$(sqlite3 "$DB" 'SELECT COUNT(*) FROM orderbook_snapshots WHERE ts > 100000000000;' 2>/dev/null)
+  if [ "${bad:-0}" -gt 0 ]; then
+    echo "cleanup: removing ${bad} snapshots with bad (ms) timestamps"
+    sqlite3 "$DB" 'PRAGMA busy_timeout=5000; DELETE FROM orderbook_snapshots WHERE ts > 100000000000;'
+  fi
+fi
+
 echo "================ polybot status ================"
 if systemctl is-active --quiet polybot-collector; then
   echo "collector service : ACTIVE"
