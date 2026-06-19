@@ -16,7 +16,7 @@ SERVICE_USER="${SERVICE_USER:-polybot}"
 
 echo "==> Installing system packages"
 apt-get update -y
-apt-get install -y python3 python3-venv python3-pip git
+apt-get install -y python3 python3-venv python3-pip git sqlite3
 
 echo "==> Creating service user '${SERVICE_USER}'"
 id -u "${SERVICE_USER}" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "${SERVICE_USER}"
