@@ -45,5 +45,7 @@ echo "================================================"
 CFG="$APP_DIR/config/config.yaml"
 [ -f "$CFG" ] || CFG="$APP_DIR/config/config.example.yaml"
 echo
-"$APP_DIR/.venv/bin/python" -m polybot.cli mm-backtest --config "$CFG" 2>/dev/null || \
+# Point the backtest at the real DB explicitly — polybot-sync does not cd into
+# the project, so a relative db_path would open an empty database.
+POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli mm-backtest --config "$CFG" 2>/dev/null || \
   echo "(mm-backtest skipped — not enough data yet)"
