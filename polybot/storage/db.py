@@ -26,6 +26,7 @@ _MARKET_MIGRATIONS: list[tuple[str, str]] = [
     ("fee_rate", "FLOAT"),
     ("rebate_rate", "FLOAT"),
     ("liquidity_usd", "FLOAT DEFAULT 0.0"),
+    ("end_ts", "FLOAT DEFAULT 0.0"),
 ]
 
 

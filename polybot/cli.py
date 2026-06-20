@@ -162,6 +162,19 @@ def data_report(
     typer.echo(build_data_report(make_engine(config.db_path)))
 
 
+@app.command(name="screen")
+def screen(
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Rank collected markets by reward attractiveness vs competition/vol/timing."""
+    from .analysis.reward_screener import build_screener_report
+    from .storage.db import make_engine
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+    typer.echo(build_screener_report(make_engine(config.db_path), config.screener))
+
+
 @app.command(name="mm-backtest")
 def mm_backtest(
     config_path: str = typer.Option(None, "--config", help="Path to YAML config."),

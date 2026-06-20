@@ -139,4 +139,22 @@ def parse_market_meta(market: dict[str, Any]) -> dict[str, Any]:
         "fee_rate": _to_float(fee.get("rate")),
         "rebate_rate": _to_float(fee.get("rebateRate")),
         "liquidity_usd": _to_float(market.get("liquidityClob") or market.get("liquidity")) or 0.0,
+        "end_ts": _parse_iso_ts(market.get("endDate") or market.get("endDateIso")),
     }
+
+
+def _parse_iso_ts(value: Any) -> float:
+    """Parse an ISO-8601 date/datetime into a unix timestamp (0.0 if missing)."""
+    if not value or not isinstance(value, str):
+        return 0.0
+    from datetime import datetime
+
+    s = value.strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(s).timestamp()
+    except ValueError:
+        # Date-only form (YYYY-MM-DD).
+        try:
+            return datetime.fromisoformat(s + "T00:00:00+00:00").timestamp()
+        except ValueError:
+            return 0.0

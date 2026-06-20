@@ -107,12 +107,23 @@ class StrategyConfig(BaseModel):
     pro_mm: ProMmConfig = Field(default_factory=ProMmConfig)
 
 
+class ScreenerConfig(BaseModel):
+    """Reward-screener assumptions — how much we'd deploy and our risk thresholds."""
+
+    capital_per_market_usd: float = 1000.0   # capital we'd post per market (each side)
+    quote_distance_cents: float = 1.0        # where we'd quote from mid
+    min_days_to_resolution: float = 2.0      # resolve sooner than this -> risky/ending
+    min_reward_yield_pct: float = 0.20       # %/day reward yield to be "attractive"
+    max_vol_cents: float = 3.0               # mid stdev above this -> high adverse-selection risk
+
+
 class Config(BaseModel):
     api: ApiConfig = Field(default_factory=ApiConfig)
     collector: CollectorConfig = Field(default_factory=CollectorConfig)
     paper: PaperConfig = Field(default_factory=PaperConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     strategy: StrategyConfig = Field(default_factory=StrategyConfig)
+    screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
 
     # Operational (env-overridable, not part of the YAML schema by default).
     db_path: str = "data/polybot.db"

@@ -38,6 +38,7 @@ class Market(Base):
     fee_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     rebate_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     liquidity_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    end_ts: Mapped[float] = mapped_column(Float, default=0.0)
 
 
 class OrderBookSnapshot(Base):

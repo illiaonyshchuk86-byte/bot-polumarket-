@@ -49,6 +49,11 @@ echo
 POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli data-report --config "$CFG" 2>/dev/null || \
   echo "(data-report skipped)"
 
+# --- Reward screener: where (if anywhere) is reward-farming worthwhile? ---
+echo
+POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli screen --config "$CFG" 2>/dev/null || \
+  echo "(screen skipped)"
+
 # --- Professional MM backtest on the collected data (paper, no real orders) ---
 echo
 # Point the backtest at the real DB explicitly — polybot-sync does not cd into
