@@ -218,7 +218,7 @@ class MMSession:
         for st in self.states.values():
             all_changes.extend(st.equity_changes)
 
-        results.sort(key=lambda r: r.equity(), reverse=True)
+        results.sort(key=lambda r: r.total(), reverse=True)
         net = sum(r.equity() for r in results)
         return MMReport(
             starting_cash=self.params.starting_cash_usd,

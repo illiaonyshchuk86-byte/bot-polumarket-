@@ -71,11 +71,19 @@ class ProMmConfig(BaseModel):
 
     # --- Inventory control (defends against "inventory pile-up") ---
     inventory_skew_cents_per_share: float = 0.05  # shift quote center vs inventory
-    max_inventory_shares: float = 200.0           # hard cap -> one-sided at limit
+    max_inventory_shares: float = 200.0           # hard cap (shares)
+    max_inventory_usd: float = 0.0                # if > 0, cap inventory by dollars instead
+    # Only quote when the midpoint is in this range (skip extreme longshots where
+    # dollar-sizing explodes and microstructure is weird).
+    min_mid: float = 0.0
+    max_mid: float = 1.0
 
     # --- Sizing ---
     base_size: float = 20.0
     min_size: float = 5.0
+    # If > 0, size each quote by dollars instead: shares = target_notional / price.
+    # Needed for reward-farming, where qualifying depends on share count.
+    target_notional_usd: float = 0.0
 
     # --- Volatility / jump guard (defends against "run over on moves") ---
     vol_window_secs: float = 120.0

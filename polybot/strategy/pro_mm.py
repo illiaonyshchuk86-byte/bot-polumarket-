@@ -54,6 +54,10 @@ class ProMarketMaker:
         if s.jump_cents > p.jump_kill_cents:
             return None
 
+        # Skip extreme-priced markets (dollar-sizing explodes, odd microstructure).
+        if not (p.min_mid <= s.mid <= p.max_mid):
+            return None
+
         # --- Defense #3: spread floor + volatility widening ---
         half_spread_cents = max(
             p.min_half_spread_cents,
@@ -76,13 +80,19 @@ class ProMarketMaker:
         if ask <= bid:  # keep at least one tick of spread
             ask = min(1 - s.tick, bid + s.tick)
 
-        # --- Defense #2b: hard inventory cap -> quote one side only at the limit ---
-        bid_size = p.base_size
-        ask_size = p.base_size
-        if s.inventory >= p.max_inventory_shares:
-            bid_size = 0.0
-        if s.inventory <= -p.max_inventory_shares:
-            ask_size = 0.0
+        # Sizing: fixed shares, or dollar-target (size = $notional / price) for
+        # reward-farming where qualifying for rewards depends on share count.
+        size = p.base_size
+        if p.target_notional_usd > 0 and s.mid > 0:
+            size = p.target_notional_usd / s.mid
+
+        # --- Defense #2b: inventory cap (shares or, if set, dollars). Cap each
+        # order to the remaining room so a single fill can't overshoot the cap. ---
+        cap = p.max_inventory_shares
+        if p.max_inventory_usd > 0 and s.mid > 0:
+            cap = p.max_inventory_usd / s.mid
+        bid_size = max(0.0, min(size, cap - s.inventory))
+        ask_size = max(0.0, min(size, cap + s.inventory))
 
         # Size floor — never post dust.
         if bid_size < p.min_size:

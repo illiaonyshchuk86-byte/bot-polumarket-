@@ -54,9 +54,17 @@ echo
 POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli screen --config "$CFG" 2>/dev/null || \
   echo "(screen skipped)"
 
-# --- Professional MM backtest on the collected data (paper, no real orders) ---
+# --- MM backtest: spread mode (default small size) ---
 echo
+echo ">>> MM backtest: SPREAD mode (small size, no rewards)"
 # Point the backtest at the real DB explicitly — polybot-sync does not cd into
 # the project, so a relative db_path would open an empty database.
 POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli mm-backtest --config "$CFG" 2>/dev/null || \
   echo "(mm-backtest skipped — not enough data yet)"
+
+# --- MM backtest: reward-farming mode ($-sized, tight quotes, rewards on) ---
+echo
+echo ">>> MM backtest: REWARD-FARMING mode (\$1000/market, rewards + adverse selection)"
+RF="$APP_DIR/config/reward_farming.yaml"
+[ -f "$RF" ] && POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli mm-backtest --config "$RF" 2>/dev/null || \
+  echo "(reward-farming backtest skipped)"

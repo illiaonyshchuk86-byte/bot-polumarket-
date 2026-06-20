@@ -70,6 +70,20 @@ def test_vol_widens_spread():
     assert abs(q.ask_price - 0.55) < 1e-9
 
 
+def test_dollar_sizing():
+    mm = mk(clamp_to_reward_zone=False, target_notional_usd=1000.0,
+            base_size=20.0, max_inventory_shares=100000.0)
+    q = mm.quote(MMQuoteInput(mid=0.50, sigma_cents=0.0, jump_cents=0.0, inventory=0.0))
+    assert abs(q.bid_size - 2000.0) < 1e-6   # $1000 / 0.50 = 2000 shares
+    assert abs(q.ask_size - 2000.0) < 1e-6
+
+
+def test_price_range_filter_skips_extremes():
+    mm = mk(min_mid=0.05, max_mid=0.95)
+    assert mm.quote(MMQuoteInput(mid=0.002, sigma_cents=0, jump_cents=0, inventory=0)) is None
+    assert mm.quote(MMQuoteInput(mid=0.50, sigma_cents=0, jump_cents=0, inventory=0)) is not None
+
+
 def test_reward_zone_clamp_but_not_below_floor():
     mm = mk(base_half_spread_cents=5.0, min_half_spread_cents=1.0, clamp_to_reward_zone=True)
     q = mm.quote(MMQuoteInput(
