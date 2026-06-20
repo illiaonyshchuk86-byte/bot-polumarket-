@@ -148,6 +148,19 @@ def _print_mm_report(report, *, title: str, elapsed_secs: float | None = None) -
                "rewards. Treat as an honest floor, not a promise.")
 
 
+@app.command(name="data-report")
+def data_report(
+    config_path: str = typer.Option(None, "--config", help="Path to YAML config."),
+):
+    """Show what the collected data actually contains (spreads, movement, markets)."""
+    from .analysis.data_report import build_data_report
+    from .storage.db import make_engine
+
+    config = load_config(config_path)
+    _setup_logging(config.log_level)
+    typer.echo(build_data_report(make_engine(config.db_path)))
+
+
 @app.command(name="mm-backtest")
 def mm_backtest(
     config_path: str = typer.Option(None, "--config", help="Path to YAML config."),

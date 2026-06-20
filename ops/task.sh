@@ -41,9 +41,15 @@ echo "disk free         : $(df -h / | awk 'NR==2{print $4" / "$2}')"
 echo "current commit    : $(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null)"
 echo "================================================"
 
-# --- Professional MM backtest on the collected data (paper, no real orders) ---
 CFG="$APP_DIR/config/config.yaml"
 [ -f "$CFG" ] || CFG="$APP_DIR/config/config.example.yaml"
+
+# --- What does the collected data actually show? ---
+echo
+POLYBOT_DB_PATH="$DB" "$APP_DIR/.venv/bin/python" -m polybot.cli data-report --config "$CFG" 2>/dev/null || \
+  echo "(data-report skipped)"
+
+# --- Professional MM backtest on the collected data (paper, no real orders) ---
 echo
 # Point the backtest at the real DB explicitly — polybot-sync does not cd into
 # the project, so a relative db_path would open an empty database.
