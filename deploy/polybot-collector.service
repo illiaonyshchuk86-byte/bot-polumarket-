@@ -1,0 +1,24 @@
+[Unit]
+Description=polybot Polymarket data collector (read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and paths to match your VPS setup.
+User=polybot
+WorkingDirectory=/opt/polybot
+Environment=POLYBOT_CONFIG=/opt/polybot/config/config.yaml
+Environment=POLYBOT_DB_PATH=/opt/polybot/data/polybot.db
+Environment=POLYBOT_LOG_LEVEL=INFO
+ExecStart=/opt/polybot/.venv/bin/python -m polybot.cli daemon
+# Restart on crash with a short delay.
+Restart=always
+RestartSec=5
+# Light hardening (read-only service; only needs to write its data dir).
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

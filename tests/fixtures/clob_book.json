@@ -1,0 +1,13 @@
+{
+  "market": "0xMARKET123",
+  "asset_id": "111111",
+  "timestamp": "1718800000",
+  "bids": [
+    {"price": "0.40", "size": "100"},
+    {"price": "0.39", "size": "250"}
+  ],
+  "asks": [
+    {"price": "0.42", "size": "80"},
+    {"price": "0.43", "size": "300"}
+  ]
+}

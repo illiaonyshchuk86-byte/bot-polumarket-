@@ -1,0 +1,76 @@
+# polybot configuration (example). Copy to config/config.yaml and adjust.
+
+# Public API hosts (read-only). Verified June 2026.
+api:
+  gamma_base: "https://gamma-api.polymarket.com"
+  clob_base: "https://clob.polymarket.com"
+  data_base: "https://data-api.polymarket.com"
+  ws_market: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+  timeout_seconds: 15.0
+  max_retries: 3
+
+# Data collector settings.
+collector:
+  poll_interval_seconds: 10
+  # How many active markets to track per cycle (sorted by liquidity/volume).
+  max_markets: 40
+  # Only collect markets whose 24h volume (USD) is at least this much.
+  min_volume_usd: 1000.0
+  # Keep only the top-N price levels per book side when storing (0 = unlimited).
+  # 10 is plenty for spread/liquidity/MM analysis and keeps the DB small.
+  max_book_depth: 10
+  # Track reward-enabled (market-making relevant) markets first, then fill the
+  # rest by volume. Set false to collect a purely volume-ranked universe.
+  prioritize_rewards: true
+
+# Paper-trading / simulation settings.
+paper:
+  starting_cash_usd: 1000.0
+  # Polymarket taker fee fraction applied on notional. Conservative default;
+  # Polymarket fees have historically been low/zero — keep a buffer for realism.
+  taker_fee_bps: 0.0
+  # Extra slippage assumption (basis points) applied on top of book walking.
+  extra_slippage_bps: 10.0
+
+# Risk limits — enforced even in paper mode.
+risk:
+  max_position_usd_per_market: 100.0
+  max_total_exposure_usd: 500.0
+  daily_loss_cap_usd: 50.0
+
+# Strategy-specific parameters.
+strategy:
+  arb_scanner:
+    # Minimum (1 - (best_ask_yes + best_ask_no)) edge to flag, in cents.
+    min_edge_cents: 1.0
+  naive_mm:
+    # Half-spread (in cents) to quote around the midpoint.
+    half_spread_cents: 2.0
+    # Order size in shares per quote.
+    order_size: 20.0
+  # Professional market maker. ALL tuning happens here — the core logic in
+  # strategy/pro_mm.py stays fixed. Tune these numbers over weeks of testing.
+  pro_mm:
+    # Spread (defends against quoting too tight)
+    base_half_spread_cents: 2.0
+    min_half_spread_cents: 1.0        # hard floor — never tighter than this
+    vol_spread_coeff: 1.0             # widen by this * sigma(cents)
+    # Inventory control (defends against position pile-up)
+    inventory_skew_cents_per_share: 0.05
+    max_inventory_shares: 200.0
+    # Sizing
+    base_size: 20.0
+    min_size: 5.0
+    # Volatility / jump guard (defends against being run over on moves)
+    vol_window_secs: 120.0
+    jump_kill_cents: 3.0              # pull all quotes if recent range exceeds this
+    # Keep quotes inside the reward band (but never below the safety floor)
+    clamp_to_reward_zone: true
+    starting_cash_usd: 1000.0
+    # Fill realism (keep the dry-run honest):
+    #   require price to trade THROUGH a quote by this many ticks before a fill
+    #   (0 = a touch fills; raise it to be more conservative)
+    fill_through_ticks: 0.0
+    maker_fee_bps: 0.0                # Polymarket makers pay 0; kept tunable
+    # Only backtest the most recent N hours (bounds memory/time)
+    backtest_lookback_hours: 48.0
