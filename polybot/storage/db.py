@@ -21,6 +21,7 @@ _MARKET_MIGRATIONS: list[tuple[str, str]] = [
     ("rewards_enabled", "BOOLEAN DEFAULT 0"),
     ("rewards_max_spread", "FLOAT"),
     ("rewards_min_size", "FLOAT"),
+    ("rewards_daily_rate", "FLOAT DEFAULT 0.0"),
     ("holding_rewards_enabled", "BOOLEAN DEFAULT 0"),
     ("fee_rate", "FLOAT"),
     ("rebate_rate", "FLOAT"),

@@ -26,8 +26,12 @@ from dataclasses import dataclass, field
 from ..config import ProMmConfig
 from ..domain import OrderBook
 from ..strategy.pro_mm import MMQuoteInput, ProMarketMaker
+from .rewards import RewardParams, reward_for_interval
 
 TICK = 0.01
+# Cap a single scoring interval so a polling gap can't over-credit rewards
+# (Polymarket samples once per minute).
+_MAX_REWARD_DT = 60.0
 
 
 @dataclass
@@ -43,16 +47,20 @@ class TokenResult:
     kills: int
     max_abs_inventory: float
     steps: int
+    rewards: float = 0.0
 
     def equity(self) -> float:
         return self.realized_cash + self.inventory * self.last_mid
+
+    def total(self) -> float:
+        return self.equity() + self.rewards
 
 
 @dataclass
 class _TokenState:
     token_id: str
     market_id: str
-    reward_spread: float | None = None
+    reward_params: RewardParams | None = None
     cash: float = 0.0
     inventory: float = 0.0
     resting: object = None  # Quote | None
@@ -64,6 +72,8 @@ class _TokenState:
     max_abs_inventory: float = 0.0
     last_mid: float = 0.0
     steps: int = 0
+    rewards: float = 0.0
+    prev_ts: float | None = None
     equity_changes: list[float] = field(default_factory=list)
     _prev_equity: float = 0.0
 
@@ -81,12 +91,17 @@ class MMReport:
     steps: int
     pnl_per_step_mean: float
     pnl_per_step_std: float
+    total_rewards: float = 0.0
     top_tokens: list[TokenResult] = field(default_factory=list)
     worst_tokens: list[TokenResult] = field(default_factory=list)
     open_inventory_tokens: int = 0
 
     def net_pnl(self) -> float:
+        """Spread-only PnL (rewards excluded)."""
         return self.final_equity - self.starting_cash
+
+    def net_with_rewards(self) -> float:
+        return self.net_pnl() + self.total_rewards
 
     def return_pct(self) -> float:
         return 100.0 * self.net_pnl() / self.starting_cash if self.starting_cash else 0.0
@@ -108,14 +123,16 @@ class MMSession:
         return {tid for tid, st in self.states.items() if abs(st.inventory) > 1e-9}
 
     def on_book(
-        self, token_id: str, market_id: str, book: OrderBook, reward_spread: float | None, ts: float
+        self, token_id: str, market_id: str, book: OrderBook,
+        reward_params: RewardParams | None, ts: float
     ) -> None:
         """Process one order-book observation for a token."""
         bb, ba = book.best_bid(), book.best_ask()
         st = self.states.get(token_id)
         if st is None:
-            st = _TokenState(token_id=token_id, market_id=market_id, reward_spread=reward_spread)
+            st = _TokenState(token_id=token_id, market_id=market_id, reward_params=reward_params)
             self.states[token_id] = st
+        st.reward_params = reward_params or st.reward_params
 
         if bb is None or ba is None:
             st.resting = None  # cannot quote a one-sided book
@@ -125,6 +142,12 @@ class MMSession:
         st.last_mid = mid
         st.steps += 1
         through = self.params.fill_through_ticks * TICK
+
+        # 0) Accrue rewards for the quote that was resting over the last interval.
+        if st.prev_ts is not None and st.resting is not None and st.reward_params is not None:
+            dt = min(ts - st.prev_ts, _MAX_REWARD_DT)
+            st.rewards += reward_for_interval(st.resting, book, mid, st.reward_params, dt)
+        st.prev_ts = ts
 
         # 1) Fill the previously resting quote against the move to this book.
         q = st.resting
@@ -158,7 +181,9 @@ class MMSession:
                     sigma_cents=sigma_cents,
                     jump_cents=jump_cents,
                     inventory=st.inventory,
-                    rewards_max_spread_cents=st.reward_spread,
+                    rewards_max_spread_cents=(
+                        st.reward_params.max_spread_cents if st.reward_params else None
+                    ),
                 )
             )
             if new_quote is None:
@@ -185,6 +210,7 @@ class MMSession:
                 kills=st.kills,
                 max_abs_inventory=st.max_abs_inventory,
                 steps=st.steps,
+                rewards=st.rewards,
             )
             for st in self.states.values()
         ]
@@ -206,6 +232,7 @@ class MMSession:
             steps=sum(r.steps for r in results),
             pnl_per_step_mean=statistics.fmean(all_changes) if all_changes else 0.0,
             pnl_per_step_std=statistics.pstdev(all_changes) if len(all_changes) >= 2 else 0.0,
+            total_rewards=sum(r.rewards for r in results),
             top_tokens=results[:5],
             worst_tokens=results[-5:][::-1],
             open_inventory_tokens=len(self.tokens_with_inventory()),

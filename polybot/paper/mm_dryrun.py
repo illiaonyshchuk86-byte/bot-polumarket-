@@ -18,6 +18,7 @@ from ..clients.gamma import GammaClient, parse_clob_token_ids, parse_market_meta
 from ..collector.collector import _market_volume
 from ..config import Config, ProMmConfig
 from .mm_session import MMReport, MMSession
+from .rewards import RewardParams
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +45,9 @@ class MMDryRun:
             timeout_seconds=config.api.timeout_seconds,
             max_retries=config.api.max_retries,
         )
-        # token_id -> (market_id, rewards_max_spread); remembered so we can keep
+        # token_id -> (market_id, RewardParams); remembered so we can keep
         # managing a position even after its market leaves the volume selection.
-        self._token_meta: dict[str, tuple[str, float | None]] = {}
+        self._token_meta: dict[str, tuple[str, RewardParams]] = {}
 
     def _select_markets(self) -> list[dict]:
         markets = self.gamma.list_markets(active=True, closed=False, limit=200)
@@ -67,21 +68,26 @@ class MMDryRun:
             if not market_id:
                 continue
             meta = parse_market_meta(market)
+            params = RewardParams(
+                max_spread_cents=meta["rewards_max_spread"] or 0.0,
+                min_size=meta["rewards_min_size"] or 0.0,
+                daily_rate_usd=meta["rewards_daily_rate"] or 0.0,
+            )
             for token_id in parse_clob_token_ids(market):
-                self._token_meta[token_id] = (market_id, meta["rewards_max_spread"])
+                self._token_meta[token_id] = (market_id, params)
                 selected.append(token_id)
 
         held = [t for t in self.sim.tokens_with_inventory() if t in self._token_meta]
         to_poll = list(dict.fromkeys(selected + held))  # dedup, keep order
 
         for token_id in to_poll:
-            market_id, reward_spread = self._token_meta[token_id]
+            market_id, params = self._token_meta[token_id]
             try:
                 book = self.clob.get_order_book(token_id)
             except Exception as exc:
                 logger.warning("book fetch failed for %s: %s", token_id, exc)
                 continue
-            self.sim.on_book(token_id, market_id, book, reward_spread, time.time())
+            self.sim.on_book(token_id, market_id, book, params, time.time())
 
     def run(
         self,

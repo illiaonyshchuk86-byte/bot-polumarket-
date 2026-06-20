@@ -124,11 +124,12 @@ def backtest(
 
 def _print_mm_report(report, *, title: str, elapsed_secs: float | None = None) -> None:
     typer.echo("─" * 60)
-    typer.echo(f"  {title} (rewards NOT credited)")
+    typer.echo(f"  {title}")
     typer.echo("─" * 60)
     typer.echo(f"  Starting cash : ${report.starting_cash:,.2f}")
-    typer.echo(f"  Final equity  : ${report.final_equity:,.2f}")
-    typer.echo(f"  Net PnL       : ${report.net_pnl():,.2f}  ({report.return_pct():+.2f}% of capital)")
+    typer.echo(f"  Spread PnL    : ${report.net_pnl():,.2f}  ({report.return_pct():+.2f}% of capital)")
+    typer.echo(f"  Rewards (est) : ${report.total_rewards:,.2f}  (liquidity-reward model)")
+    typer.echo(f"  TOTAL (PnL+rw): ${report.net_with_rewards():,.2f}")
     if elapsed_secs:
         typer.echo(f"  Over          : {elapsed_secs / 3600.0:.2f} hours (NOT annualized)")
     typer.echo(f"  Tokens / steps: {report.tokens} / {report.steps}")
@@ -144,8 +145,8 @@ def _print_mm_report(report, *, title: str, elapsed_secs: float | None = None) -
             typer.echo(f"    {t.token_id[:14]}… eq ${t.equity():+.2f} "
                        f"inv {t.inventory:+.0f} fills {t.fills}")
     typer.echo("─" * 60)
-    typer.echo("NOTE: ~snapshot-resolution maker fills, no queue position, no "
-               "rewards. Treat as an honest floor, not a promise.")
+    typer.echo("NOTE: ~snapshot-resolution maker fills, no queue position. Rewards"
+               " are a conservative estimate (competition = full visible book).")
 
 
 @app.command(name="data-report")

@@ -117,7 +117,13 @@ def parse_market_meta(market: dict[str, Any]) -> dict[str, Any]:
     clob_rewards = market.get("clobRewards") or []
     max_spread = _to_float(market.get("rewardsMaxSpread"))
     min_size = _to_float(market.get("rewardsMinSize"))
-    rewards_enabled = bool(clob_rewards) or (max_spread is not None and max_spread > 0)
+    # Sum daily reward pool ($/day) across reward entries.
+    daily_rate = 0.0
+    for entry in clob_rewards:
+        rate = _to_float(entry.get("rewardsDailyRate")) if isinstance(entry, dict) else None
+        if rate:
+            daily_rate += rate
+    rewards_enabled = (daily_rate > 0) or (max_spread is not None and max_spread > 0)
 
     fee = market.get("feeSchedule") or {}
 
@@ -128,6 +134,7 @@ def parse_market_meta(market: dict[str, Any]) -> dict[str, Any]:
         "rewards_enabled": rewards_enabled,
         "rewards_max_spread": max_spread,
         "rewards_min_size": min_size,
+        "rewards_daily_rate": daily_rate,
         "holding_rewards_enabled": bool(market.get("holdingRewardsEnabled")),
         "fee_rate": _to_float(fee.get("rate")),
         "rebate_rate": _to_float(fee.get("rebateRate")),

@@ -33,6 +33,7 @@ class Market(Base):
     rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     rewards_max_spread: Mapped[float | None] = mapped_column(Float, nullable=True)
     rewards_min_size: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rewards_daily_rate: Mapped[float] = mapped_column(Float, default=0.0)
     holding_rewards_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     fee_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     rebate_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
